@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Admin Portal</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }
+        .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid #334155; }
+        .header h1 { margin: 0; color: #38bdf8; letter-spacing: 1px; }
+        .header p { color: #94a3b8; margin-top: 5px; }
+        
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
+        
+        .card { background-color: #1e293b; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); border-left: 5px solid #38bdf8; }
+        .card h2 { margin-top: 0; font-size: 22px; color: #ffffff; }
+        
+        .resource { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; background: #0f172a; padding: 15px; border-radius: 8px; }
+        .resource-name { font-weight: bold; color: #cbd5e1; }
+        .resource-count { font-size: 24px; font-weight: 900; color: #10b981; }
+        .critical { color: #ef4444; }
+        
+        .controls { display: flex; gap: 10px; margin-top: 15px; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-minus { background-color: #ef4444; color: white; }
+        .btn-minus:hover { background-color: #dc2626; }
+        .btn-plus { background-color: #10b981; color: white; }
+        .btn-plus:hover { background-color: #059669; }
+        
+        .sync-banner { text-align: center; margin-top: 40px; color: #10b981; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🏥 Metro Trauma Center</h1>
+        <p>Live Resource Management Dashboard • Secure Session</p>
+    </div>
+
+    <div class="dashboard">
+        <!-- ICU Beds Card -->
+        <div class="card" style="border-color: #ef4444;">
+            <h2>Level 1 ICU Beds</h2>
+            <div class="resource">
+                <span class="resource-name">Available Capacity</span>
+                <span class="resource-count" id="icu-count">4</span>
+            </div>
+            <div class="controls">
+                <button class="btn-minus" onclick="updateResource('icu-count', -1)">- 1 Patient</button>
+                <button class="btn-plus" onclick="updateResource('icu-count', 1)">+ 1 Bed</button>
+            </div>
+        </div>
+
+        <!-- Burn Unit Card -->
+        <div class="card" style="border-color: #f59e0b;">
+            <h2>Specialized Burn Unit</h2>
+            <div class="resource">
+                <span class="resource-name">Available Capacity</span>
+                <span class="resource-count" id="burn-count">2</span>
+            </div>
+            <div class="controls">
+                <button class="btn-minus" onclick="updateResource('burn-count', -1)">- 1 Patient</button>
+                <button class="btn-plus" onclick="updateResource('burn-count', 1)">+ 1 Bed</button>
+            </div>
+        </div>
+
+        <!-- Blood Supply Card -->
+        <div class="card" style="border-color: #ef4444;">
+            <h2>O-Negative Blood Supply</h2>
+            <div class="resource">
+                <span class="resource-name">Units Available</span>
+                <span class="resource-count" id="blood-count">15</span>
+            </div>
+            <div class="controls">
+                <button class="btn-minus" onclick="updateResource('blood-count', -1)">- 1 Unit</button>
+                <button class="btn-plus" onclick="updateResource('blood-count', 1)">+ 1 Unit</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sync-banner" id="sync-banner">
+        ✅ Database Synced. Central Dispatch Brain Updated.
+    </div>
+
+    <script>
+        // Simple script to handle the UI updates and simulate the API call to the Java Server
+        function updateResource(elementId, change) {
+            const element = document.getElementById(elementId);
+            let currentCount = parseInt(element.innerText);
+            
+            let newCount = currentCount + change;
+            if (newCount < 0) newCount = 0; // Prevent negative beds
+            
+            element.innerText = newCount;
+
+            // Visual warning if capacity hits zero
+            if (newCount === 0) {
+                element.classList.add('critical');
+            } else {
+                element.classList.remove('critical');
+            }
+
+            // Show sync confirmation
+            const banner = document.getElementById('sync-banner');
+            banner.style.display = 'block';
+            
+            // In a fully wired production app, this is where we would execute:
+            fetch('http://localhost:8080/api/hospitals/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ resource: elementId, count: newCount })
+            })
+            .then(response => {
+                console.log("Database successfully updated.");
+            })
+            .catch(error => {
+                console.error("Network Error:", error);
+            });
+            
+            setTimeout(() => {
+                banner.style.display = 'none';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

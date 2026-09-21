@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Live Dispatch</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #1e1e1e; color: #fff; padding: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .panel { background: #2d2d2d; padding: 20px; border-radius: 8px; width: 400px; }
+        .alert { background: #3d3d3d; margin: 10px 0; padding: 15px; border-left: 5px solid #4CAF50; border-radius: 4px; }
+        .critical { border-left-color: #f44336; }
+        h2 { color: #4CAF50; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        select, input, button { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 4px; border: none; box-sizing: border-box; }
+        button { background: #f44336; color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        button:hover { background: #d32f2f; }
+        label { font-size: 12px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. The 911 Operator Form (Hits the REST API) -->
+    <div class="panel">
+        <h2>📞 911 Call Center</h2>
+        
+        <label>Emergency Description</label>
+        <input type="text" id="desc" value="Multi-car pileup reported">
+        
+        <label>Location</label>
+        <select id="location">
+            <option value="Highway-Junction">Highway Junction</option>
+            <option value="Downtown-Crash">Downtown Crash Site</option>
+            <option value="Ambulance-Base">Ambulance Base</option>
+        </select>
+
+        <label>Medical Severity</label>
+        <select id="severity">
+            <option value="LEVEL_1_CRITICAL">Level 1 - Critical (Requires Trauma Center)</option>
+            <option value="LEVEL_3_URGENT">Level 3 - Urgent (Any Hospital)</option>
+            <option value="LEVEL_5_NON_URGENT">Level 5 - Non Urgent (Any Hospital)</option>
+        </select>
+
+        <button onclick="dispatchAmbulance()">🚨 DISPATCH AMBULANCE</button>
+        <div id="apiStatus" style="color: gray; font-size: 14px; text-align: center; margin-top: 10px;">Ready to dispatch...</div>
+    </div>
+
+    <!-- 2. The Live Alerts Dashboard (Listens to WebSockets) -->
+    <div class="panel">
+        <h2>📡 Live Dispatch Feed</h2>
+        <div id="connectionStatus" style="color: gray;">Connecting to server...</div>
+        <div id="alertsContainer"></div>
+    </div>
+
+    <script>
+        // --- WEBSOCKET LISTENER (Receives Data) ---
+        var socket = new SockJS('/smart-city-ws');
+        var stompClient = Stomp.over(socket);
+        stompClient.debug = null; 
+
+        stompClient.connect({}, function (frame) {
+            document.getElementById('connectionStatus').innerText = "✅ Connected to Live Feed!";
+            document.getElementById('connectionStatus').style.color = "#4CAF50";
+
+            stompClient.subscribe('/topic/alerts', function (message) {
+                var data = JSON.parse(message.body);
+                displayAlert(data);
+            });
+        });
+
+        function displayAlert(data) {
+            var container = document.getElementById('alertsContainer');
+            var div = document.createElement('div');
+            div.className = 'alert ' + (data.severity === 'LEVEL_1_CRITICAL' ? 'critical' : '');
+            div.innerHTML = `
+                <strong>Patient ID:</strong> ${data.patientId} <br/>
+                <strong>Severity:</strong> ${data.severity} <br/>
+                <strong>Destination:</strong> 🏥 ${data.destination} <br/>
+                <strong>Status:</strong> ${data.status}
+            `;
+            container.prepend(div); 
+        }
+
+        // --- REST API CALLER (Sends Data) ---
+        function dispatchAmbulance() {
+            var btn = document.querySelector('button');
+            var statusLabel = document.getElementById('apiStatus');
+            
+            btn.innerText = "⏳ PROCESSING...";
+            btn.style.background = "#ff9800";
+            statusLabel.innerText = "Sending API Request...";
+            statusLabel.style.color = "gray";
+
+            // Grab the values from the form
+            var payload = {
+                description: document.getElementById('desc').value,
+                location: document.getElementById('location').value,
+                severity: document.getElementById('severity').value
+            };
+
+            // Hit Developer 2's API endpoint!
+            fetch('/api/emergency', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.text())
+            .then(text => {
+                statusLabel.innerText = text;
+                statusLabel.style.color = "#4CAF50";
+                btn.innerText = "🚨 DISPATCH AMBULANCE";
+                btn.style.background = "#f44336";
+            })
+            .catch(err => {
+                statusLabel.innerText = "❌ API Error! Is the server running?";
+                statusLabel.style.color = "red";
+                btn.innerText = "🚨 DISPATCH AMBULANCE";
+                btn.style.background = "#f44336";
+            });
+        }
+    </script>
+</body>
+</html>
